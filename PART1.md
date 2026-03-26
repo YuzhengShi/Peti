@@ -137,8 +137,8 @@ erDiagram
 
     User {
         int id PK
-        string email UK
-        string username UK
+        string email
+        string username
         string password
         string role
         datetime createdAt
@@ -147,7 +147,7 @@ erDiagram
 
     Pet {
         int id PK
-        int userId FK UK
+        int userId FK
         string name
         json appearance
         string mood
@@ -155,6 +155,7 @@ erDiagram
         datetime createdAt
         datetime updatedAt
     }
+    %% If Pet is truly 1:1 with User, enforce UNIQUE(userId) in DB (documented here)
 
     ProfileResult {
         int id PK

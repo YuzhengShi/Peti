@@ -1,0 +1,108 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+model User {
+  id             String          @id @default(cuid())
+  email          String          @unique
+  username       String          @unique
+  passwordHash   String
+  role           String          @default("user") // "user" | "admin"
+  createdAt      DateTime        @default(now())
+  updatedAt      DateTime        @updatedAt
+  pet            Pet?
+  memories       Memory[]
+  profileResults ProfileResult[]
+  messages       Message[]
+  session        Session?
+  userProfile    UserProfile?
+  userState      UserState?
+
+  @@index([email])
+  @@index([role])
+}
+
+model Pet {
+  id         String   @id @default(cuid())
+  userId     String   @unique
+  name       String
+  appearance Json     @default("{}")
+  level      Int      @default(1)
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+  user       User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+}
+
+model Memory {
+  id         String   @id @default(cuid())
+  userId     String
+  content    String   @db.Text
+  category   String   // observation | strategy | preference | milestone
+  importance Int      @default(1) // 1-5
+  isActive   Boolean  @default(true)
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+  user       User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId, isActive])
+  @@index([userId, category])
+}
+
+model Session {
+  userId    String   @id
+  sessionId String
+  updatedAt DateTime @updatedAt
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+}
+
+model UserProfile {
+  userId    String   @id
+  content   String   @db.Text // Full PROFILE.md content
+  updatedAt DateTime @updatedAt
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+}
+
+model UserState {
+  userId         String   @id
+  mood           String   @default("content")
+  energy         String   @default("good")
+  animation      String   @default("idle")
+  streak         Int      @default(0)
+  lastSeen       DateTime @default(now())
+  pendingMessage String?  @db.Text
+  updatedAt      DateTime @updatedAt
+  user           User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+}
+
+model ProfileResult {
+  id             String   @id @default(cuid())
+  userId         String
+  dimensionType  String   // bigFive | attachment | personalityFunctioning | dailyFunctioning | sleepRegulation | emotionRegulation
+  scores         Json     // { subscales: { [name]: { raw, band } }, aggregate: { raw, band } }
+  previousScores Json?    // snapshot of prior scores for trend comparison
+  feedback       String?  @db.Text // LLM-generated narrative (V1: null, populated when Bedrock is connected)
+  isStable       Boolean  @default(true) // true for one-time assessed, false for dynamic
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+  user           User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, dimensionType])
+  @@index([userId])
+}
+
+model Message {
+  id        String   @id @default(cuid())
+  userId    String
+  role      String   // "user" | "pet"
+  content   String   @db.Text
+  agentType String?  // null for user messages, "main" | "health" | "relationship" | "hobby" | "occupational" | "growth-purpose" for pet
+  createdAt DateTime @default(now())
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId, createdAt])
+}

@@ -65,7 +65,7 @@ router.post('/register', async (req: Request, res: Response) => {
     httpOnly: true,
     secure: config.frontendUrl.startsWith('https'),
     sameSite: 'lax',
-    maxAge: 15 * 60 * 1000, // 15 minutes
+    maxAge: config.accessTokenExpirySeconds * 1000,
   });
 
   return res.status(201).json({

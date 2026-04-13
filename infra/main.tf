@@ -27,9 +27,47 @@ data "aws_ami" "al2023" {
   }
 }
 
+# VPC (ISB accounts have no default VPC)
+resource "aws_vpc" "peti" {
+  cidr_block           = "10.0.0.0/16"
+  enable_dns_support   = true
+  enable_dns_hostnames = true
+  tags                 = { Name = "peti-vpc" }
+}
+
+resource "aws_internet_gateway" "peti" {
+  vpc_id = aws_vpc.peti.id
+  tags   = { Name = "peti-igw" }
+}
+
+resource "aws_subnet" "peti" {
+  vpc_id                  = aws_vpc.peti.id
+  cidr_block              = "10.0.1.0/24"
+  availability_zone       = "${var.aws_region}a"
+  map_public_ip_on_launch = true
+  tags                    = { Name = "peti-subnet" }
+}
+
+resource "aws_route_table" "peti" {
+  vpc_id = aws_vpc.peti.id
+
+  route {
+    cidr_block = "0.0.0.0/0"
+    gateway_id = aws_internet_gateway.peti.id
+  }
+
+  tags = { Name = "peti-rt" }
+}
+
+resource "aws_route_table_association" "peti" {
+  subnet_id      = aws_subnet.peti.id
+  route_table_id = aws_route_table.peti.id
+}
+
 resource "aws_security_group" "peti" {
   name        = "peti-sg"
   description = "Peti app security group"
+  vpc_id      = aws_vpc.peti.id
 
   ingress {
     description = "SSH"
@@ -69,10 +107,11 @@ resource "aws_instance" "peti" {
   ami                    = data.aws_ami.al2023.id
   instance_type          = var.instance_type
   key_name               = var.key_name
+  subnet_id              = aws_subnet.peti.id
   vpc_security_group_ids = [aws_security_group.peti.id]
 
   root_block_device {
-    volume_size = 20
+    volume_size = 30
     volume_type = "gp3"
   }
 

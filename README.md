@@ -252,4 +252,4 @@ Deployed on a single AWS EC2 instance (Terraform in `infra/`):
 - **Client**: Vite build served by Nginx
 - **Reverse Proxy**: Nginx routes `/api/*` to backend, serves SPA with fallback
 
-**Live URL**: <!-- TODO: fill after deploy -->
+**Live URL**: http://100.22.90.10

@@ -38,3 +38,17 @@ PROFILE_TEMPLATE.md
 RELATIONSHIP_ARC.md
 memory-bank/
 sub-agents/
+
+# Terraform
+infra/.terraform/
+infra/terraform.tfstate
+infra/terraform.tfstate.backup
+infra/terraform.tfvars
+*.tfstate
+*.tfstate.backup
+
+# Build artifacts
+client/tsconfig.tsbuildinfo
+
+# Internal planning docs
+INSIGHT_LINK.md

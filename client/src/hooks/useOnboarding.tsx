@@ -18,18 +18,21 @@ export function OnboardingProvider({ children }: { children: ReactNode }) {
   const { user } = useAuth();
   const [hasPet, setHasPet] = useState(false);
   const [testComplete, setTestComplete] = useState(false);
-  const [loading, setLoading] = useState(true);
+  const [checkedUserId, setCheckedUserId] = useState<string | null>(null);
+
+  // Derived loading: true when user exists but we haven't verified this user yet.
+  // This is synchronous — no stale state between render and useEffect.
+  const loading = user ? checkedUserId !== user.id : false;
 
   useEffect(() => {
     if (!user) {
       setHasPet(false);
       setTestComplete(false);
-      setLoading(false);
+      setCheckedUserId(null);
       return;
     }
 
     let cancelled = false;
-    setLoading(true);
 
     Promise.all([
       getMyPet().then(() => true).catch(() => false),
@@ -38,8 +41,7 @@ export function OnboardingProvider({ children }: { children: ReactNode }) {
       if (cancelled) return;
       setHasPet(pet);
       setTestComplete(test);
-    }).finally(() => {
-      if (!cancelled) setLoading(false);
+      setCheckedUserId(user.id);
     });
 
     return () => { cancelled = true; };

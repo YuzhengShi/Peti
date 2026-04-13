@@ -47,15 +47,17 @@ export function TestResultsPage() {
           </Link>
         </div>
       ) : (
-        <div style={{ padding: '2rem', textAlign: 'center' }}>
-          <h2 style={{ fontSize: '0.65rem', marginBottom: '1rem' }}>here's what we learned</h2>
-          <p style={{ fontSize: '0.45rem', color: 'var(--text-secondary)', lineHeight: 2, marginBottom: '2rem' }}>
+        <div style={{ padding: '1.5rem', textAlign: 'center' }}>
+          <div className="section-header" style={{ justifyContent: 'center' }}>
+            <span className="section-title">here's what we learned</span>
+          </div>
+          <p style={{ fontSize: '0.55rem', color: 'var(--text-muted)', marginTop: '0.75rem', lineHeight: 2, marginBottom: '1.5rem' }}>
             these are descriptive ranges — not labels or scores.<br />
             they help peti understand how to be a better companion.
           </p>
 
-          <div style={{ display: 'flex', justifyContent: 'center', marginBottom: '2.5rem' }}>
-            <RadarChart results={radarData} size={260} />
+          <div style={{ display: 'flex', justifyContent: 'center', padding: '2rem 0' }}>
+            <RadarChart results={radarData} size={320} />
           </div>
 
           <div style={{ display: 'flex', justifyContent: 'center', gap: '1rem' }}>

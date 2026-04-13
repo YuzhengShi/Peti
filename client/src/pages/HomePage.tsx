@@ -58,8 +58,8 @@ export function HomePage() {
           </p>
 
           {user ? (
-            <Link to="/memories" className="btn btn-primary" style={{ textDecoration: 'none' }}>
-              View Memories
+            <Link to="/dashboard" className="btn btn-primary" style={{ textDecoration: 'none' }}>
+              Go to Dashboard
             </Link>
           ) : (
             <div style={{ display: 'flex', gap: '1rem', flexWrap: 'wrap' }}>
@@ -77,8 +77,8 @@ export function HomePage() {
       {/* How it works modal */}
       {showHow && (
         <>
-          <div className="modal-overlay" onClick={closeHow} />
-          <div className="modal">
+          <div className="modal-overlay" onClick={closeHow} aria-hidden="true" />
+          <div className="modal" role="dialog" aria-label="How it works">
             <div className={`card${closingHow ? ' draggable-window-closing' : ''}`} style={{ maxWidth: 780, width: '100%', maxHeight: '85vh', overflowY: 'auto' }}>
               <div style={{ display: 'flex', justifyContent: 'flex-end', marginBottom: '1rem' }}>
                 <button

@@ -2,13 +2,7 @@ import { Navigate } from 'react-router-dom';
 import { useAuth } from '../hooks/useAuth';
 import { useOnboarding } from '../hooks/useOnboarding';
 
-interface ProtectedRouteProps {
-  children: React.ReactNode;
-  /** If true, this route is accessible during onboarding (e.g. /pet/new, /test, /results). */
-  onboardingRoute?: boolean;
-}
-
-export function ProtectedRoute({ children, onboardingRoute }: ProtectedRouteProps) {
+export function AdminRoute({ children }: { children: React.ReactNode }) {
   const { user, loading: authLoading } = useAuth();
   const { hasPet, onboarded, loading: onboardingLoading } = useOnboarding();
 
@@ -20,15 +14,15 @@ export function ProtectedRoute({ children, onboardingRoute }: ProtectedRouteProp
     return <Navigate to="/login" replace />;
   }
 
-  if (onboardingRoute) {
-    return <>{children}</>;
-  }
-
   if (!onboarded) {
     if (!hasPet) {
       return <Navigate to="/pet/new" replace />;
     }
     return <Navigate to="/test" replace />;
+  }
+
+  if (user.role !== 'admin') {
+    return <Navigate to="/" replace />;
   }
 
   return <>{children}</>;

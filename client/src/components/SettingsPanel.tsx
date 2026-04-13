@@ -128,11 +128,11 @@ export function SettingsPanel() {
             {TRACKS[trackIdx].name}
           </div>
           <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', justifyContent: 'center', marginBottom: '0.75rem' }}>
-            <button onClick={prevTrack} className="music-ctrl" title="Previous">‹</button>
-            <button onClick={togglePlay} className="music-ctrl music-ctrl-main" title={playing ? 'Pause' : 'Play'}>
+            <button onClick={prevTrack} className="music-ctrl" title="Previous" aria-label="Previous track">‹</button>
+            <button onClick={togglePlay} className="music-ctrl music-ctrl-main" title={playing ? 'Pause' : 'Play'} aria-label={playing ? 'Pause music' : 'Play music'}>
               {playing ? '▐▐' : '▶'}
             </button>
-            <button onClick={nextTrack} className="music-ctrl" title="Next">›</button>
+            <button onClick={nextTrack} className="music-ctrl" title="Next" aria-label="Next track">›</button>
           </div>
           <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
             <span style={{ fontSize: '0.4rem', color: 'var(--text-muted)' }}>♪</span>
@@ -140,6 +140,7 @@ export function SettingsPanel() {
               type="range" min="0" max="1" step="0.01" value={volume}
               onChange={e => setVolume(parseFloat(e.target.value))}
               className="volume-slider"
+              aria-label="Volume"
             />
             <span style={{ fontSize: '0.4rem', color: 'var(--text-muted)', minWidth: '1.8rem' }}>
               {Math.round(volume * 100)}%

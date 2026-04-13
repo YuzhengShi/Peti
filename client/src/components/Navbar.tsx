@@ -1,9 +1,11 @@
 import { useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { useAuth } from '../hooks/useAuth';
+import { useOnboarding } from '../hooks/useOnboarding';
 
 export function Navbar() {
   const { user, logout } = useAuth();
+  const { onboarded } = useOnboarding();
   const navigate = useNavigate();
   const [loggingOut, setLoggingOut] = useState(false);
 
@@ -19,13 +21,18 @@ export function Navbar() {
   }
 
   return (
-    <nav className="navbar" style={{ opacity: loggingOut ? 0 : 1, transition: 'opacity 0.12s ease-in' }}>
+    <nav className="navbar" aria-label="Main navigation" style={{ opacity: loggingOut ? 0 : 1, transition: 'opacity 0.12s ease-in' }}>
       <Link to="/" className="navbar-brand">Peti</Link>
       <div className="navbar-links">
         {user ? (
           <>
-            <Link to="/memories">Memories</Link>
-            <Link to="/memories/new">New</Link>
+            {onboarded && (
+              <>
+                <Link to="/dashboard">Dashboard</Link>
+                <Link to="/profile">Profile</Link>
+                {user.role === 'admin' && <Link to="/admin">Admin</Link>}
+              </>
+            )}
             <span className="nav-username">{user.username}</span>
             <button onClick={handleLogout}>Logout</button>
           </>

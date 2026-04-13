@@ -39,15 +39,13 @@ Three layers of value:
 | Homepage | `/` | Public | Pixel-art landing page with animated GIF background, Learn More modal |
 | Register | `/register` | Public | Client-side validation: email format, username 3-20 chars, password strength (8+ chars, uppercase, number) |
 | Login | `/login` | Public | Email + password authentication |
-| Memories | `/memories` | Auth | Paginated list with loading/error/empty states, optimistic delete with rollback |
-| New Memory | `/memories/new` | Auth | Form with content, category, importance validation |
-| Admin Dashboard | `/admin` | Admin | User list with search and pagination |
-| Admin User Detail | `/admin/users/:id` | Admin | View/edit/delete specific user |
-| Pet Creation | `/pet/create` | Auth | Name input + appearance customizer |
+| Pet Creation | `/pet/new` | Auth | Name input, egg emoji placeholder, redirects to personality test |
 | Personality Test | `/test` | Auth | 106-question assessment across 6 domains, auto-save + resume |
 | Test Results | `/results` | Auth | Radar chart with descriptive bands (lower/moderate/higher) |
-| Profile | `/profile` | Auth | 6-dimension radar chart with trend arrows |
-| Dashboard | `/dashboard` | Auth | Pet sprite + chat + weather + message history |
+| Profile | `/profile` | Auth | 6-dimension radar chart with subscale detail cards |
+| Dashboard | `/dashboard` | Auth | Pet info + chat + weather + embedded memories panel |
+| Admin Dashboard | `/admin` | Admin | User list with search and pagination |
+| Admin User Detail | `/admin/users/:id` | Admin | View/edit/delete specific user |
 
 ### API Endpoints
 
@@ -131,8 +129,10 @@ Every data-fetching page implements loading, error, and empty states:
 - **Pagination + Filtering + Search**: Memories page supports paginated results, category filter, and debounced search (300ms)
 - **Dark Mode**: CSS variables for theming, persisted in localStorage, respects `prefers-color-scheme` on first visit
 - **Form Validation**: Client-side (real-time field errors) + server-side (400 with structured error details) on all forms. Complex validation includes password strength (uppercase + number), email format, unique username check
-- **Responsive Design**: Mobile-first with breakpoint at 640px
+- **Responsive Design**: Mobile-first with breakpoints at 640px (mobile) and 768px (tablet)
 - **Glass-morphism UI**: All pages rendered in draggable, resizable floating windows with backdrop-filter blur
+- **Accessibility**: Skip-to-content link, focus-visible outlines, ARIA labels on all interactive elements, semantic landmarks (`<main>`, `<nav>`, `role="dialog"`)
+- **Unit Tests**: 33 tests across 4 test files (RadarChart, Navbar, MemoriesPage, scoring engine) using Vitest + React Testing Library
 
 ## Database
 
@@ -196,10 +196,13 @@ peti/
 │   ├── src/
 │   │   ├── App.tsx
 │   │   ├── api/                   # Typed fetch wrappers
-│   │   ├── hooks/                 # useAuth, useSettings
-│   │   ├── components/            # Navbar, ProtectedRoute, DraggableWindow, SettingsPanel
-│   │   ├── pages/                 # All page components
-│   │   └── styles/globals.css     # CSS variables, glass-morphism, animations
+│   │   ├── hooks/                 # useAuth, useSettings, useDebounce, useTestProgress, usePetStream, useWeather
+│   │   ├── components/            # Navbar, ProtectedRoute, AdminRoute, DraggableWindow, RadarChart, SettingsPanel
+│   │   ├── pages/                 # All page components (12 pages)
+│   │   ├── questions/             # 106-item personality assessment question bank (6 domains)
+│   │   ├── scoring/               # Scoring engine with subscale bands + unit tests
+│   │   ├── __tests__/             # Component tests (RadarChart, Navbar, MemoriesPage)
+│   │   └── styles/globals.css     # CSS variables, glass-morphism, animations, responsive
 │   ├── vite.config.ts
 │   └── package.json
 ├── accessibility_reports/
@@ -242,8 +245,11 @@ npm run dev                 # http://localhost:5173
 
 ## Deployment
 
-<!-- TODO: Add deployment links -->
+Deployed on a single AWS EC2 instance (Terraform in `infra/`):
 
-- **Database**: 
-- **API**: 
-- **Client**: 
+- **Database**: PostgreSQL 16 on EC2
+- **API**: Node.js + Express (systemd service)
+- **Client**: Vite build served by Nginx
+- **Reverse Proxy**: Nginx routes `/api/*` to backend, serves SPA with fallback
+
+**Live URL**: <!-- TODO: fill after deploy -->

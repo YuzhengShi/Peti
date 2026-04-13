@@ -6,19 +6,20 @@ interface Props {
   children: ReactNode;
   defaultWidth?: number;
   defaultHeight?: number;
+  onClose?: () => void;
 }
 
 const MIN_W = 320;
 const MIN_H = 200;
 
-export function DraggableWindow({ title, children, defaultWidth = 680, defaultHeight = 560 }: Props) {
+export function DraggableWindow({ title, children, defaultWidth = 680, defaultHeight = 560, onClose }: Props) {
   const navigate = useNavigate();
   const [closing, setClosing] = useState(false);
 
   const handleClose = useCallback(() => {
     setClosing(true);
-    setTimeout(() => navigate('/'), 120);
-  }, [navigate]);
+    setTimeout(() => onClose ? onClose() : navigate('/'), 120);
+  }, [navigate, onClose]);
 
   const [pos, setPos] = useState(() => ({
     x: Math.max(0, (window.innerWidth - defaultWidth) / 2),
@@ -94,6 +95,8 @@ export function DraggableWindow({ title, children, defaultWidth = 680, defaultHe
   return (
     <div
       className={`draggable-window${closing ? ' draggable-window-closing' : ''}`}
+      role="dialog"
+      aria-label={title}
       style={{ left: pos.x, top: pos.y, width: size.w, height: size.h }}
     >
       {/* Title bar */}

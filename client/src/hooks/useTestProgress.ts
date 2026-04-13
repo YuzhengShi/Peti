@@ -3,7 +3,6 @@ import { domainSections } from '../questions';
 import type { DimensionType, DomainSection } from '../questions/types';
 import type { ScoredResult } from '../scoring/utils';
 import { submitProfile, getProfiles, ProfileResult } from '../api/profiles';
-import { apiFetch } from '../api/fetch';
 
 // Domain scorers — mapped by DimensionType
 import { scoreDailyFunctioning } from '../scoring/dailyfunctioning';
@@ -144,9 +143,8 @@ export function useTestProgress(): UseTestProgressReturn {
     setCurrentDomainIndex(index);
   }, []);
 
-  // POST /api/onboarding after all 6 domains + clean up localStorage
+  // Clean up localStorage after all 6 domains complete
   const triggerOnboarding = useCallback(async () => {
-    await apiFetch<{ message: string }>('/api/onboarding', { method: 'POST' });
     localStorage.removeItem(STORAGE_KEY);
   }, []);
 

@@ -40,7 +40,7 @@ export function RegisterPage() {
     setSubmitting(true);
     try {
       await register(form.email, form.username, form.password);
-      navigate('/memories');
+      navigate('/dashboard');
     } catch (err) {
       if (err instanceof ApiError) err.details ? setErrors(err.details) : setServerError(err.message);
       else setServerError('Something went wrong');

@@ -34,7 +34,7 @@ export function LoginPage() {
     setSubmitting(true);
     try {
       await login(form.email, form.password);
-      navigate('/memories');
+      navigate('/dashboard');
     } catch (err) {
       if (err instanceof ApiError) setServerError(err.message);
       else setServerError('Something went wrong');

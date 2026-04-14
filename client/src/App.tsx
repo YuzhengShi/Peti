@@ -14,6 +14,7 @@ import { PersonalityTestPage } from './pages/PersonalityTestPage';
 import { TestResultsPage } from './pages/TestResultsPage';
 import { ProfilePage } from './pages/ProfilePage';
 import { DashboardPage } from './pages/DashboardPage';
+import { MemoryCreatePage } from './pages/MemoryCreatePage';
 
 export function App() {
   const { theme } = useSettings();
@@ -43,6 +44,9 @@ export function App() {
         } />
         <Route path="/dashboard" element={
           <ProtectedRoute><DashboardPage /></ProtectedRoute>
+        } />
+        <Route path="/memories/new" element={
+          <ProtectedRoute><MemoryCreatePage /></ProtectedRoute>
         } />
         <Route path="/admin" element={
           <AdminRoute><AdminDashboardPage /></AdminRoute>

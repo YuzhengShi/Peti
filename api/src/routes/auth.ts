@@ -107,7 +107,7 @@ router.post('/login', async (req: Request, res: Response) => {
     httpOnly: true,
     secure: config.frontendUrl.startsWith('https'),
     sameSite: 'lax',
-    maxAge: 15 * 60 * 1000,
+    maxAge: config.accessTokenExpirySeconds * 1000,
   });
 
   return res.json({

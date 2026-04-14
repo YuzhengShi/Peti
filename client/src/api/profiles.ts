@@ -34,3 +34,11 @@ export function submitProfile(dimensionType: DimensionType, scores: ScoredResult
 export function getProfiles() {
   return apiFetch<ProfileResult[]>('/api/profiles');
 }
+
+export function generateProfile() {
+  return apiFetch<{ content: string }>('/api/profiles/generate', { method: 'POST' });
+}
+
+export function getProfileContent() {
+  return apiFetch<{ content: string | null; summary: string | null; updatedAt: string | null }>('/api/profiles/content');
+}

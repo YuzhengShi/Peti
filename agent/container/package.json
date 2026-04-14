@@ -1,0 +1,10 @@
+{
+  "name": "peti-container",
+  "version": "1.0.0",
+  "type": "module",
+  "description": "Peti agent container — heartbeat + agent-runner",
+  "scripts": {
+    "build": "cd agent-runner && npm run build"
+  },
+  "dependencies": {}
+}

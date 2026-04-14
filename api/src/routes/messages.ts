@@ -9,21 +9,33 @@ router.get('/', requireAuth, async (req: Request, res: Response) => {
   const userId = req.user!.userId;
   const page = Math.max(1, parseInt(req.query.page as string) || 1);
   const pageSize = Math.min(100, Math.max(1, parseInt(req.query.pageSize as string) || 50));
-  const skip = (page - 1) * pageSize;
 
-  const [messages, total] = await Promise.all([
-    prisma.message.findMany({
+  const total = await prisma.message.count({ where: { userId } });
+  const totalPages = Math.ceil(total / pageSize) || 1;
+  const latest = req.query.latest === 'true';
+
+  let messages;
+  if (latest) {
+    // Fetch last N messages: query desc, then reverse to restore chronological order
+    messages = await prisma.message.findMany({
+      where: { userId },
+      orderBy: { createdAt: 'desc' },
+      take: pageSize,
+    });
+    messages.reverse();
+  } else {
+    const skip = (page - 1) * pageSize;
+    messages = await prisma.message.findMany({
       where: { userId },
       orderBy: { createdAt: 'asc' },
       skip,
       take: pageSize,
-    }),
-    prisma.message.count({ where: { userId } }),
-  ]);
+    });
+  }
 
   return res.json({
     data: messages,
-    pagination: { page, pageSize, total, totalPages: Math.ceil(total / pageSize) },
+    pagination: { page: latest ? totalPages : page, pageSize, total, totalPages },
   });
 });
 

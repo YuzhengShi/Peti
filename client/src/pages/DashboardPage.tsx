@@ -21,7 +21,7 @@ export function DashboardPage() {
       try {
         const [petData, msgData] = await Promise.all([
           getMyPet().catch(() => null),
-          getMessages(1, 50).catch(() => ({ data: [] as Message[], pagination: { page: 1, pageSize: 50, total: 0, totalPages: 0 } })),
+          getMessages(1, 50, true).catch(() => ({ data: [] as Message[], pagination: { page: 1, pageSize: 50, total: 0, totalPages: 0 } })),
         ]);
         if (petData) setPet(petData);
         setMessages(msgData.data);

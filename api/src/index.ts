@@ -10,6 +10,7 @@ import profilesRoutes from './routes/profiles';
 import weatherRoutes from './routes/weather';
 import messagesRoutes from './routes/messages';
 import chatRoutes from './routes/chat';
+import internalRoutes from './routes/internal';
 
 const app = express();
 
@@ -34,6 +35,7 @@ app.use('/api/profiles', profilesRoutes);
 app.use('/api/weather', weatherRoutes);
 app.use('/api/messages', messagesRoutes);
 app.use('/api/chat', chatRoutes);
+app.use('/api/internal', internalRoutes);
 
 // Start server
 app.listen(config.port, () => {

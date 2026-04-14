@@ -9,8 +9,9 @@ export interface Message {
   createdAt: string;
 }
 
-export function getMessages(page = 1, pageSize = 50): Promise<PaginatedResponse<Message>> {
-  return apiFetchPaginated<Message>(`/api/messages?page=${page}&pageSize=${pageSize}`);
+export function getMessages(page = 1, pageSize = 50, latest = false): Promise<PaginatedResponse<Message>> {
+  const params = `page=${page}&pageSize=${pageSize}${latest ? '&latest=true' : ''}`;
+  return apiFetchPaginated<Message>(`/api/messages?${params}`);
 }
 
 export function deleteMessage(id: string) {

@@ -155,8 +155,11 @@ export function PersonalityTestPage() {
   const { items, scale, title, intro, timeframe } = currentSection;
   const answeredCount = items.filter(item => answers[item.id] !== undefined).length;
   const allAnswered = answeredCount === items.length;
-  const currentItem = items[questionIndex];
-  const isLastQuestion = questionIndex === items.length - 1;
+  // Clamp questionIndex — during section transitions, the new section renders
+  // before the useEffect resets questionIndex, which can exceed items.length
+  const safeQuestionIndex = Math.min(questionIndex, items.length - 1);
+  const currentItem = items[safeQuestionIndex];
+  const isLastQuestion = safeQuestionIndex === items.length - 1;
 
   return (
     <DraggableWindow
@@ -296,10 +299,10 @@ export function PersonalityTestPage() {
             }}>
               <button
                 className="btn btn-secondary"
-                onClick={() => fadeToQuestion(questionIndex - 1)}
+                onClick={() => fadeToQuestion(safeQuestionIndex - 1)}
                 style={{
                   fontSize: '0.5rem',
-                  visibility: questionIndex === 0 ? 'hidden' : 'visible',
+                  visibility: safeQuestionIndex === 0 ? 'hidden' : 'visible',
                 }}
               >
                 Back
@@ -321,7 +324,7 @@ export function PersonalityTestPage() {
               ) : (
                 <button
                   className="btn btn-secondary"
-                  onClick={() => fadeToQuestion(questionIndex + 1)}
+                  onClick={() => fadeToQuestion(safeQuestionIndex + 1)}
                   style={{ fontSize: '0.5rem' }}
                 >
                   Next
@@ -330,8 +333,8 @@ export function PersonalityTestPage() {
             </div>
 
             {isLastQuestion && !allAnswered && (
-              <p style={{ textAlign: 'center', fontSize: '0.45rem', color: 'var(--text-muted)', marginTop: '0.75rem' }}>
-                answer all questions to continue
+              <p style={{ textAlign: 'center', fontSize: '0.5rem', color: 'var(--text-muted)', marginTop: '0.75rem' }}>
+                {items.length - answeredCount} question{items.length - answeredCount === 1 ? '' : 's'} left
               </p>
             )}
           </>

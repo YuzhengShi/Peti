@@ -1,6 +1,7 @@
 import { Router, Request, Response } from 'express';
 import { prisma } from '../db';
 import { requireAuth } from '../middleware/requireAuth';
+import { generateProfile } from '../profile-generator';
 
 const router = Router();
 
@@ -56,6 +57,43 @@ router.get('/', requireAuth, async (req: Request, res: Response) => {
   });
 
   return res.json({ data: results });
+});
+
+// POST /api/profiles/generate — trigger LLM profile generation
+router.post('/generate', requireAuth, async (req: Request, res: Response) => {
+  const userId = req.user!.userId;
+
+  const count = await prisma.profileResult.count({ where: { userId } });
+  if (count < 6) {
+    return res.status(400).json({
+      error: { code: 'INCOMPLETE_DATA', message: 'All 6 domains must be completed before generating a profile' },
+    });
+  }
+
+  try {
+    const content = await generateProfile(userId);
+    return res.json({ data: { content } });
+  } catch (err: any) {
+    console.error('Profile generation failed:', err);
+    return res.status(500).json({
+      error: { code: 'GENERATION_FAILED', message: err.message || 'Profile generation failed' },
+    });
+  }
+});
+
+// GET /api/profiles/content — get the LLM-generated profile content
+router.get('/content', requireAuth, async (req: Request, res: Response) => {
+  const profile = await prisma.userProfile.findUnique({
+    where: { userId: req.user!.userId },
+  });
+
+  return res.json({
+    data: {
+      content: profile?.content || null,
+      summary: profile?.summary || null,
+      updatedAt: profile?.updatedAt?.toISOString() || null,
+    },
+  });
 });
 
 export default router;

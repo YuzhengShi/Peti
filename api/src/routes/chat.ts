@@ -1,12 +1,18 @@
 import { Router, Request, Response } from 'express';
 import { prisma } from '../db';
 import { requireAuth } from '../middleware/requireAuth';
+import { containerRunner, ContainerOutput } from '../container-runner';
+import { profileManager } from '../profile-manager';
 
 const router = Router();
 
+// Active SSE connections per user — used by internal API to push state events
+export const activeStreams = new Map<string, {
+  send: (event: object) => void;
+  res: Response;
+}>();
+
 // POST /api/chat — SSE streaming chat endpoint
-// V1 stub: saves messages and streams a placeholder response.
-// Will be replaced with real agent container integration.
 router.post('/', requireAuth, async (req: Request, res: Response) => {
   const userId = req.user!.userId;
   const { message } = req.body;
@@ -32,7 +38,10 @@ router.post('/', requireAuth, async (req: Request, res: Response) => {
     res.write(`data: ${JSON.stringify(event)}\n\n`);
   };
 
-  // Check for pending proactive message
+  // Register SSE stream for state push events from internal API
+  activeStreams.set(userId, { send, res });
+
+  // Flush pending proactive message
   const userState = await prisma.userState.findUnique({ where: { userId } });
   if (userState?.pendingMessage) {
     send({ type: 'proactive', text: userState.pendingMessage });
@@ -42,30 +51,99 @@ router.post('/', requireAuth, async (req: Request, res: Response) => {
     });
   }
 
-  // V1 stub: generate a placeholder response
-  // When the agent container is connected, this block gets replaced with
-  // containerLifecycle.sendMessage(userId, message) + stdout streaming.
-  const stubResponses = [
-    "hey, I heard you.",
-    "I'm still getting set up, but I'm here.",
-    "once my full self is online, we'll have real conversations — for now, just know I'm listening.",
-  ];
-  const response = stubResponses[Math.floor(Math.random() * stubResponses.length)];
+  // --- Completion tracking ---
+  // After the last output result, wait 2s of silence then send 'done'.
+  // Don't start the idle timer until first output arrives (agent needs time to process).
+  let closed = false;
+  let gotFirstOutput = false;
+  let doneTimer: ReturnType<typeof setTimeout> | null = null;
 
-  // Stream response as sentence events with delays
-  const sentences = response.split(/(?<=[.!?])\s+/).filter(Boolean);
-  for (let i = 0; i < sentences.length; i++) {
-    await new Promise(resolve => setTimeout(resolve, 300));
-    send({ type: 'sentence', text: sentences[i] });
+  const hardTimeout = setTimeout(() => finish(), 120_000);
+
+  function resetDoneTimer() {
+    gotFirstOutput = true;
+    if (doneTimer) clearTimeout(doneTimer);
+    doneTimer = setTimeout(() => finish(), 2000);
   }
 
-  // Save pet response
-  await prisma.message.create({
-    data: { userId, role: 'pet', content: response, agentType: 'main' },
+  function finish() {
+    if (closed) return;
+    closed = true;
+    if (doneTimer) clearTimeout(doneTimer);
+    clearTimeout(hardTimeout);
+
+    send({ type: 'done' });
+    activeStreams.delete(userId);
+    res.end();
+
+    // Sync state from disk after session
+    profileManager.syncStateFromDisk(userId).catch(err => {
+      console.error(`[chat] Failed to sync state for ${userId}:`, err);
+    });
+  }
+
+  // Handle client disconnect
+  req.on('close', () => {
+    if (closed) return;
+    closed = true;
+    if (doneTimer) clearTimeout(doneTimer);
+    clearTimeout(hardTimeout);
+    activeStreams.delete(userId);
+    profileManager.syncStateFromDisk(userId).catch(() => {});
   });
 
-  send({ type: 'done' });
-  res.end();
+  // --- Send to agent container ---
+  try {
+    await containerRunner.sendMessage(
+      userId,
+      message.trim(),
+
+      // onOutput: called for each OUTPUT_START/END result from the container
+      async (output: ContainerOutput) => {
+        if (closed) return;
+
+        if (output.status === 'error') {
+          send({ type: 'error', message: output.error || 'Agent error' });
+          finish();
+          return;
+        }
+
+        if (output.result) {
+          // Split into sentences and stream
+          const sentences = output.result
+            .split(/(?<=[.!?])\s+/)
+            .filter(s => s.trim().length > 0);
+
+          for (const sentence of sentences) {
+            send({ type: 'sentence', text: sentence });
+          }
+
+          // Save pet response
+          await prisma.message.create({
+            data: { userId, role: 'pet', content: output.result, agentType: 'main' },
+          });
+        }
+
+        // Reset the done timer — more output may follow
+        resetDoneTimer();
+      },
+
+      // onSendMessage: called for immediate send_message tool calls (mid-processing)
+      (text: string) => {
+        if (closed) return;
+        send({ type: 'sentence', text });
+        resetDoneTimer();
+      },
+    );
+
+    // sendMessage returned — container accepted the message.
+    // Don't start idle timer yet — wait for first output (agent may take 10+ seconds).
+    // Hard timeout (120s) is the safety net.
+  } catch (err) {
+    console.error(`[chat] Container error for user ${userId}:`, err);
+    send({ type: 'error', message: 'Peti got distracted — try again in a moment.' });
+    finish();
+  }
 });
 
 export default router;

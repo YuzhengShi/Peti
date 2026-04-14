@@ -47,6 +47,7 @@ export function usePetStream(): UsePetStreamReturn {
   const [status, setStatus] = useState<StreamStatus>('idle');
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const abortRef = useRef<AbortController | null>(null);
+  const statusRef = useRef<StreamStatus>('idle');
 
   const send = useCallback(async (message: string) => {
     // Abort any in-flight stream
@@ -58,6 +59,7 @@ export function usePetStream(): UsePetStreamReturn {
     setProactiveMessage(null);
     setErrorMessage(null);
     setStatus('streaming');
+    statusRef.current = 'streaming';
 
     try {
       const res = await sendChat(message);
@@ -100,21 +102,27 @@ export function usePetStream(): UsePetStreamReturn {
               break;
             case 'done':
               setStatus('done');
+              statusRef.current = 'done';
               break;
             case 'error':
               setErrorMessage(event.message);
               setStatus('error');
+              statusRef.current = 'error';
               break;
           }
         }
       }
 
       // If stream ended without a done event, mark done
-      if (status !== 'error') setStatus('done');
+      if (statusRef.current !== 'error') {
+        setStatus('done');
+        statusRef.current = 'done';
+      }
     } catch (err) {
       if (!controller.signal.aborted) {
         setErrorMessage(err instanceof Error ? err.message : 'Connection lost');
         setStatus('error');
+        statusRef.current = 'error';
       }
     }
   }, []);

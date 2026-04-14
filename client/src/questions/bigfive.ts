@@ -5,7 +5,7 @@ import { DomainSection } from './types';
  * Timeframe: general tendencies | Scale: 5-point agreement
  * Subscales: neuroticism(10), extraversion(10), openness(10),
  *            agreeableness(10), conscientiousness(10)
- * Mixed keying per trait (4 reverse each for N; 3 reverse each for E/O/A/C)
+ * Mixed keying per trait (4 reverse for N; 3 reverse each for E/A/C; 2 reverse for O)
  */
 export const bigFive: DomainSection = {
   id: 'bigFive',

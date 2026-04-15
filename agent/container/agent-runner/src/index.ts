@@ -460,9 +460,13 @@ async function runQuery(
         textResult = lastAssistantText;
       }
 
-      // Strip <internal> reasoning tags
+      // Strip <internal> reasoning tags (agent sometimes closes with </thinking> instead)
       if (textResult) {
-        textResult = textResult.replace(/<internal>[\s\S]*?<\/internal>/g, '').trim() || null;
+        textResult = textResult
+          .replace(/<internal>[\s\S]*?<\/internal>/g, '')
+          .replace(/<internal>[\s\S]*?<\/thinking>/g, '')
+          .replace(/<internal>[\s\S]*$/g, '')  // unclosed tag — strip to end
+          .trim() || null;
       }
 
       // Detect Bedrock 500 errors (context overflow)

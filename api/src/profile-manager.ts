@@ -10,6 +10,11 @@ import { prisma } from './db';
 
 const SESSIONS_BASE = process.env.PETI_SESSIONS_DIR || path.join(os.tmpdir(), 'peti-sessions');
 
+// Container runs as node (uid 1000, gid 1000). Files written by the API (root)
+// must be owned by node so the agent can read and write STATE.md, PROFILE.md.
+const CONTAINER_UID = 1000;
+const CONTAINER_GID = 1000;
+
 class ProfileManager {
   getUserDir(userId: string): string {
     return path.join(SESSIONS_BASE, userId);
@@ -28,6 +33,8 @@ class ProfileManager {
 
     fs.mkdirSync(userDir, { recursive: true });
     fs.mkdirSync(sessionDir, { recursive: true });
+    fs.chownSync(userDir, CONTAINER_UID, CONTAINER_GID);
+    fs.chownSync(sessionDir, CONTAINER_UID, CONTAINER_GID);
 
     // Write PROFILE.md — prefer UserProfile.content (LLM-generated), fall back to test results
     const profile = await prisma.userProfile.findUnique({ where: { userId } });
@@ -38,6 +45,7 @@ class ProfileManager {
       const built = await this.buildProfileFromResults(userId);
       fs.writeFileSync(profilePath, built);
     }
+    fs.chownSync(profilePath, CONTAINER_UID, CONTAINER_GID);
 
     // Write STATE.md from UserState table
     const userState = await prisma.userState.findUnique({ where: { userId } });
@@ -82,6 +90,7 @@ class ProfileManager {
 
       fs.writeFileSync(statePath, blankState);
     }
+    fs.chownSync(statePath, CONTAINER_UID, CONTAINER_GID);
   }
 
   /**

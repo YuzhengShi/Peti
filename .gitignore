@@ -30,14 +30,14 @@ dist-ssr
 .env.test.local
 .env.production.local
 
-# Internal design docs (not course deliverables)
-CLAUDE.md
-STRUCTURE.md
-PIXEL_ART_GUIDE.md
-PROFILE_TEMPLATE.md
-RELATIONSHIP_ARC.md
-memory-bank/
-sub-agents/
+# Internal design docs (not course deliverables) — root-level only
+/CLAUDE.md
+/STRUCTURE.md
+/PIXEL_ART_GUIDE.md
+/PROFILE_TEMPLATE.md
+/RELATIONSHIP_ARC.md
+/memory-bank/
+/sub-agents/
 
 # Terraform
 infra/.terraform/

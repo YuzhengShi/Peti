@@ -718,7 +718,7 @@ textarea:focus-visible {
 
 /* Mobile */
 @media (max-width: 640px) {
-  html { font-size: 19px; }
+  html { font-size: 17px; }
 
   .navbar {
     padding: 0.5rem 0.75rem;

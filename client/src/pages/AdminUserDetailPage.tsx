@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { DraggableWindow } from '../components/DraggableWindow';
-import { getUser, updateUserRole, deleteUser, AdminUserDetail } from '../api/admin';
+import { getUser, updateUserRole, deleteUser, AdminUserDetail, ProfileResultSummary } from '../api/admin';
 import { useAuth } from '../hooks/useAuth';
 
 export function AdminUserDetailPage() {
@@ -119,9 +119,33 @@ export function AdminUserDetailPage() {
             </div>
             <div className="card-sm">
               <p style={{ fontSize: '0.45rem', color: 'var(--text-muted)', marginBottom: '0.5rem' }}>Profiles</p>
-              <p style={{ fontSize: '0.55rem' }}>{detail._count.profiles}</p>
+              <p style={{ fontSize: '0.55rem' }}>{detail.profileResults.length} / 6</p>
             </div>
           </div>
+
+          {/* Profile summary */}
+          {detail.userProfile?.summary && (
+            <div className="card" style={{ marginBottom: '1.5rem' }}>
+              <p style={{ fontSize: '0.45rem', color: 'var(--text-muted)', marginBottom: '0.75rem' }}>Profile Summary</p>
+              <p style={{ fontSize: '0.5rem', color: 'var(--text-secondary)', lineHeight: 1.8 }}>
+                {detail.userProfile.summary}
+              </p>
+            </div>
+          )}
+
+          {/* Personality dimensions */}
+          {detail.profileResults.length > 0 && (
+            <div style={{ marginBottom: '1.5rem' }}>
+              <p style={{ fontSize: '0.45rem', color: 'var(--text-muted)', marginBottom: '0.75rem' }}>
+                Personality Dimensions ({detail.profileResults.length}/6)
+              </p>
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '0.75rem' }}>
+                {detail.profileResults.map((r: ProfileResultSummary) => (
+                  <DimensionCard key={r.dimensionType} result={r} />
+                ))}
+              </div>
+            </div>
+          )}
 
           {/* Actions */}
           <div className="card" style={{ display: 'flex', flexWrap: 'wrap', gap: '1rem', alignItems: 'center' }}>
@@ -165,5 +189,66 @@ export function AdminUserDetailPage() {
 
       {toast && <div className={`toast toast-${toast.type}`}>{toast.message}</div>}
     </DraggableWindow>
+  );
+}
+
+const DIMENSION_LABELS: Record<string, string> = {
+  bigFive: 'Big Five',
+  attachment: 'Attachment',
+  personalityFunctioning: 'Personality Functioning',
+  dailyFunctioning: 'Daily Functioning',
+  sleepRegulation: 'Sleep Regulation',
+  emotionRegulation: 'Emotion Regulation',
+};
+
+const BAND_COLORS: Record<string, string> = {
+  low: 'var(--text-muted)',
+  'low-average': 'var(--text-secondary)',
+  average: 'var(--text-primary)',
+  'high-average': '#7ab8f5',
+  high: '#a78bfa',
+  clinical: 'var(--error)',
+  subclinical: '#f97316',
+};
+
+function DimensionCard({ result }: { result: ProfileResultSummary }) {
+  const { dimensionType, scores, updatedAt } = result;
+  const aggregate = scores?.aggregate;
+  const subscales = scores?.subscales ?? {};
+
+  return (
+    <div className="card-sm">
+      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '0.6rem' }}>
+        <span style={{ fontSize: '0.5rem', fontWeight: 600 }}>
+          {DIMENSION_LABELS[dimensionType] ?? dimensionType}
+        </span>
+        {aggregate && (
+          <span style={{ fontSize: '0.45rem', color: BAND_COLORS[aggregate.band] ?? 'var(--text-primary)', textTransform: 'capitalize' }}>
+            {aggregate.band} ({aggregate.raw})
+          </span>
+        )}
+      </div>
+      {Object.keys(subscales).length > 0 && (
+        <div style={{ display: 'flex', flexWrap: 'wrap', gap: '0.5rem' }}>
+          {Object.entries(subscales).map(([name, s]) => (
+            <span
+              key={name}
+              style={{
+                fontSize: '0.4rem',
+                padding: '0.15rem 0.5rem',
+                borderRadius: 4,
+                border: '1px solid var(--glass-border)',
+                color: BAND_COLORS[s.band] ?? 'var(--text-secondary)',
+              }}
+            >
+              {name}: {s.band}
+            </span>
+          ))}
+        </div>
+      )}
+      <p style={{ fontSize: '0.38rem', color: 'var(--text-muted)', marginTop: '0.5rem' }}>
+        {new Date(updatedAt).toLocaleDateString()}
+      </p>
+    </div>
   );
 }

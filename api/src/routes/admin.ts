@@ -48,7 +48,12 @@ router.get('/:id', async (req: Request, res: Response) => {
     select: {
       id: true, email: true, username: true, role: true, createdAt: true,
       pet: { select: { id: true, name: true, level: true } },
-      _count: { select: { memories: true, messages: true, profileResults: true } },
+      _count: { select: { memories: true, messages: true } },
+      profileResults: {
+        select: { dimensionType: true, scores: true, updatedAt: true },
+        orderBy: { updatedAt: 'desc' },
+      },
+      userProfile: { select: { summary: true } },
     },
   });
 

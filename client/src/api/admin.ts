@@ -1,13 +1,23 @@
 import { apiFetch, apiFetchPaginated, PaginatedResponse } from './fetch';
 import type { User } from './auth';
 
+export interface ProfileResultSummary {
+  dimensionType: string;
+  scores: {
+    subscales?: Record<string, { raw: number; band: string }>;
+    aggregate?: { raw: number; band: string };
+  };
+  updatedAt: string;
+}
+
 export interface AdminUserDetail extends User {
   pet: { id: string; name: string; level: number } | null;
   _count: {
     memories: number;
     messages: number;
-    profiles: number;
   };
+  profileResults: ProfileResultSummary[];
+  userProfile: { summary: string | null } | null;
 }
 
 export function getUsers(

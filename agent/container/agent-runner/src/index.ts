@@ -444,6 +444,15 @@ async function runQuery(
         ? (message as { result?: string }).result
         : null;
 
+      // Detect stale session: if the very first message is an empty result
+      // (no system/init, no assistant messages), the session ID is invalid.
+      if (!textResult && !lastAssistantText && !newSessionId && messageCount === 1) {
+        log('Stale session detected (empty result with no init), signaling reset');
+        stream.end();
+        // Signal to caller that session needs reset by throwing
+        throw new Error('Stale session — no conversation found');
+      }
+
       // Fall back to last assistant text if result is empty
       // (happens when agent ends turn with tool calls after producing text)
       if (!textResult && lastAssistantText) {

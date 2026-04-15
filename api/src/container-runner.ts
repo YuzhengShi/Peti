@@ -105,10 +105,11 @@ class ContainerRunner {
 
     const containerName = `peti-${userId}`;
 
-    // Kill any leftover container with this name
+    // Kill any leftover container with this name + clear stale session
     try {
       execSync(`docker rm -f ${containerName}`, { stdio: 'ignore' });
     } catch { /* doesn't exist, fine */ }
+    await sessionStore.markStale(userId);
 
     const sessionDir = profileManager.getSessionDir(userId);
 

@@ -744,12 +744,12 @@ textarea:focus-visible {
   .modal { padding: 1rem; }
 
   .draggable-window {
-    left: 0 !important;
-    top: 48px !important;
-    width: 100% !important;
-    height: calc(100vh - 48px) !important;
-    max-height: none !important;
-    border-radius: 0;
+    left: 3% !important;
+    top: 60px !important;
+    width: 94% !important;
+    height: 75vh !important;
+    max-height: 75vh !important;
+    border-radius: 10px;
   }
 
   .draggable-titlebar {

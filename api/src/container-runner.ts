@@ -13,6 +13,7 @@ import { Writable } from 'stream';
 import fs from 'fs';
 import os from 'os';
 import path from 'path';
+import http from 'http';
 import { config } from './config';
 import { sessionStore } from './session-store';
 import { profileManager } from './profile-manager';
@@ -65,6 +66,107 @@ const BACKEND_URL = process.env.BACKEND_URL || 'http://host.docker.internal:3001
 
 const MAX_START_RETRIES = 3;
 const RETRY_COOLDOWN_MS = 30_000; // 30 seconds
+
+// ---------------------------------------------------------------------------
+// EC2 Instance Role Credentials via IMDS (auto-rotating, no manual rotation)
+// ---------------------------------------------------------------------------
+
+interface IMDSCreds {
+  accessKeyId: string;
+  secretAccessKey: string;
+  sessionToken: string;
+  expiration: string;
+}
+
+let cachedInstanceCreds: IMDSCreds | null = null;
+
+function imdsRequest(urlPath: string, token?: string): Promise<string> {
+  return new Promise((resolve, reject) => {
+    const opts: http.RequestOptions = {
+      hostname: '169.254.169.254',
+      path: urlPath,
+      method: token ? 'GET' : 'PUT',
+      timeout: 3000,
+      headers: token
+        ? { 'X-aws-ec2-metadata-token': token }
+        : { 'X-aws-ec2-metadata-token-ttl-seconds': '21600' },
+    };
+    const req = http.request(opts, (res) => {
+      if (res.statusCode !== 200) {
+        reject(new Error(`IMDS ${urlPath} returned ${res.statusCode}`));
+        res.resume();
+        return;
+      }
+      let data = '';
+      res.on('data', (chunk) => { data += chunk; });
+      res.on('end', () => resolve(data));
+    });
+    req.on('error', reject);
+    req.on('timeout', () => { req.destroy(); reject(new Error('IMDS timeout')); });
+    req.end();
+  });
+}
+
+async function fetchInstanceRoleCreds(): Promise<IMDSCreds | null> {
+  // Return cached if still valid (refresh 5 min before expiry)
+  if (cachedInstanceCreds) {
+    const expiresAt = new Date(cachedInstanceCreds.expiration).getTime();
+    if (Date.now() < expiresAt - 5 * 60 * 1000) return cachedInstanceCreds;
+  }
+  try {
+    // IMDSv2: get session token first
+    const token = await imdsRequest('/latest/api/token');
+    const roleName = (await imdsRequest('/latest/meta-data/iam/security-credentials/', token)).trim();
+    const credsJson = await imdsRequest(`/latest/meta-data/iam/security-credentials/${roleName}`, token);
+    const data = JSON.parse(credsJson);
+    cachedInstanceCreds = {
+      accessKeyId: data.AccessKeyId,
+      secretAccessKey: data.SecretAccessKey,
+      sessionToken: data.Token,
+      expiration: data.Expiration,
+    };
+    console.log(`[container-runner] IMDS creds refreshed (role: ${roleName}, expires: ${data.Expiration})`);
+    return cachedInstanceCreds;
+  } catch (err) {
+    console.log(`[container-runner] IMDS not available: ${err instanceof Error ? err.message : err}`);
+    return null;
+  }
+}
+
+/**
+ * Get AWS credentials with 3-tier fallback: .env/process.env → IMDS instance role.
+ * IMDS creds auto-rotate (typically 6h TTL, refreshed 5min before expiry).
+ */
+async function getAwsSecrets(): Promise<Record<string, string>> {
+  const secrets: Record<string, string> = {
+    CLAUDE_CODE_USE_BEDROCK: '1',
+    ANTHROPIC_MODEL: process.env.ANTHROPIC_MODEL || 'us.anthropic.claude-sonnet-4-6',
+  };
+
+  // Tier 1: Explicit env vars / .env file
+  if (process.env.AWS_ACCESS_KEY_ID && process.env.AWS_SECRET_ACCESS_KEY) {
+    secrets.AWS_ACCESS_KEY_ID = process.env.AWS_ACCESS_KEY_ID;
+    secrets.AWS_SECRET_ACCESS_KEY = process.env.AWS_SECRET_ACCESS_KEY;
+    if (process.env.AWS_SESSION_TOKEN) secrets.AWS_SESSION_TOKEN = process.env.AWS_SESSION_TOKEN;
+    if (process.env.AWS_REGION) secrets.AWS_REGION = process.env.AWS_REGION;
+    if (process.env.AWS_DEFAULT_REGION) secrets.AWS_DEFAULT_REGION = process.env.AWS_DEFAULT_REGION;
+    return secrets;
+  }
+
+  // Tier 2: EC2 instance role via IMDS (auto-rotating)
+  const creds = await fetchInstanceRoleCreds();
+  if (creds) {
+    secrets.AWS_ACCESS_KEY_ID = creds.accessKeyId;
+    secrets.AWS_SECRET_ACCESS_KEY = creds.secretAccessKey;
+    secrets.AWS_SESSION_TOKEN = creds.sessionToken;
+    if (process.env.AWS_REGION) secrets.AWS_REGION = process.env.AWS_REGION;
+    if (process.env.AWS_DEFAULT_REGION) secrets.AWS_DEFAULT_REGION = process.env.AWS_DEFAULT_REGION;
+    return secrets;
+  }
+
+  console.warn('[container-runner] No AWS credentials found (no env vars, no IMDS role)');
+  return secrets;
+}
 
 // ---------------------------------------------------------------------------
 // ContainerRunner
@@ -184,6 +286,7 @@ class ContainerRunner {
 
     // Send initial config via stdin (secrets here, not env vars)
     const sessionId = await sessionStore.get(userId);
+    const awsSecrets = await getAwsSecrets();
 
     const initPayload = {
       prompt: '', // Will be set by sendMessage
@@ -191,16 +294,7 @@ class ContainerRunner {
       userId,
       backendUrl: BACKEND_URL,
       internalSecret: INTERNAL_SECRET,
-      secrets: {
-        ...(process.env.AWS_ACCESS_KEY_ID ? { AWS_ACCESS_KEY_ID: process.env.AWS_ACCESS_KEY_ID } : {}),
-        ...(process.env.AWS_SECRET_ACCESS_KEY ? { AWS_SECRET_ACCESS_KEY: process.env.AWS_SECRET_ACCESS_KEY } : {}),
-        ...(process.env.AWS_SESSION_TOKEN ? { AWS_SESSION_TOKEN: process.env.AWS_SESSION_TOKEN } : {}),
-        ...(process.env.AWS_REGION ? { AWS_REGION: process.env.AWS_REGION } : {}),
-        ...(process.env.AWS_DEFAULT_REGION ? { AWS_DEFAULT_REGION: process.env.AWS_DEFAULT_REGION } : {}),
-        ...(process.env.AWS_PROFILE ? { AWS_PROFILE: process.env.AWS_PROFILE } : {}),
-        CLAUDE_CODE_USE_BEDROCK: '1',
-        ANTHROPIC_MODEL: process.env.ANTHROPIC_MODEL || 'us.anthropic.claude-sonnet-4-6',
-      },
+      secrets: awsSecrets,
     };
 
     // We don't send the init payload yet — sendMessage will set the prompt and send it

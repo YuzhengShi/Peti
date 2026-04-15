@@ -119,6 +119,7 @@ class ContainerRunner {
       '--cpus', '0.5',
       '--cap-drop', 'ALL',
       '--security-opt', 'no-new-privileges',
+      '--add-host', 'host.docker.internal:host-gateway',
       '-v', `${toDockerPath(profileManager.getUserDir(userId))}:/workspace/user`,
       '-v', `${toDockerPath(AGENT_CHARACTER_DIR)}:/workspace/agent:ro`,
       '-v', `${toDockerPath(sessionDir)}:/home/node/.claude`,

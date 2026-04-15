@@ -434,8 +434,10 @@ async function runQuery(
       }
     }
 
-    // Process results
+    // Process results — stop polling stdin so follow-up messages stay
+    // in the stdinReader buffer for the main loop to pick up.
     if (message.type === 'result') {
+      stdinPumping = false;
       let textResult = 'result' in message
         ? (message as { result?: string }).result
         : null;

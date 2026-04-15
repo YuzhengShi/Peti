@@ -703,7 +703,7 @@ textarea:focus-visible {
 /* ---- Responsive ---- */
 /* Tablet */
 @media (max-width: 768px) {
-  html { font-size: 20px; }
+  html { font-size: 18px; }
 
   .draggable-window {
     left: 5% !important;
@@ -718,7 +718,7 @@ textarea:focus-visible {
 
 /* Mobile */
 @media (max-width: 640px) {
-  html { font-size: 22px; }
+  html { font-size: 19px; }
 
   .navbar {
     padding: 0.5rem 0.75rem;

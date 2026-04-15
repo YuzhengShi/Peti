@@ -247,9 +247,10 @@ npm run dev                 # http://localhost:5173
 
 Deployed on a single AWS EC2 instance (Terraform in `infra/`):
 
-- **Database**: PostgreSQL 16 on EC2
+- **Database**: PostgreSQL 14 on EC2
 - **API**: Node.js + Express (systemd service)
 - **Client**: Vite build served by Nginx
 - **Reverse Proxy**: Nginx routes `/api/*` to backend, serves SPA with fallback
+- **Agent**: Docker containers running Claude Agent SDK (Bedrock)
 
-**Live URL**: http://100.22.90.10
+**Live URL**: http://44.224.223.82

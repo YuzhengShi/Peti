@@ -703,6 +703,8 @@ textarea:focus-visible {
 /* ---- Responsive ---- */
 /* Tablet */
 @media (max-width: 768px) {
+  html { font-size: 20px; }
+
   .draggable-window {
     left: 5% !important;
     top: 80px !important;
@@ -716,22 +718,24 @@ textarea:focus-visible {
 
 /* Mobile */
 @media (max-width: 640px) {
+  html { font-size: 22px; }
+
   .navbar {
-    padding: 1rem;
+    padding: 0.5rem 0.75rem;
     flex-wrap: wrap;
-    gap: 0.75rem;
+    gap: 0.4rem;
   }
 
   .navbar-links {
     gap: 0;
-    padding: 0.3rem;
+    padding: 0.2rem;
   }
 
   .navbar-links a,
   .navbar-links button,
   .navbar-links span {
     font-size: 0.45rem;
-    padding: 0.45rem 0.7rem;
+    padding: 0.35rem 0.5rem;
   }
 
   .card { padding: 1.5rem; border-radius: 12px; }
@@ -741,9 +745,16 @@ textarea:focus-visible {
 
   .draggable-window {
     left: 0 !important;
-    top: 60px !important;
+    top: 48px !important;
     width: 100% !important;
-    border-radius: 12px 12px 0 0;
+    height: calc(100vh - 48px) !important;
+    max-height: none !important;
+    border-radius: 0;
+  }
+
+  .draggable-titlebar {
+    padding: 0.35rem 0.75rem;
+    min-height: unset;
   }
 
   .section-header { flex-wrap: wrap; gap: 0.5rem; }

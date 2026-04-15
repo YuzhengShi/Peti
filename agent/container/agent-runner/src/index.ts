@@ -290,7 +290,9 @@ OUTPUT PROTOCOL (critical):
   // Placed early so the model attends to it before behavioral rules.
   const profilePath = '/workspace/user/PROFILE.md';
   if (fs.existsSync(profilePath)) {
-    parts.push(`\n--- PROFILE.md (THIS USER — read carefully, shape every response around this) ---\n${fs.readFileSync(profilePath, 'utf-8')}`);
+    parts.push(`\n--- PROFILE.md (THIS USER — read carefully, shape every response around this) ---
+NOTE: "Name" is the user's name. "Pet name" is YOUR name — you are the pet.
+${fs.readFileSync(profilePath, 'utf-8')}`);
   }
 
   const statePath = '/workspace/user/STATE.md';
@@ -487,6 +489,11 @@ async function runQuery(
         newSessionId,
         lastAssistantUuid,
       });
+
+      // End the stream so the for-await loop exits and the main loop
+      // can pick up the next message from stdin.
+      stream.end();
+      break;
     }
   }
 

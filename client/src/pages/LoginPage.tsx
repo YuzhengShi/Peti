@@ -33,8 +33,8 @@ export function LoginPage() {
     if (Object.keys(errs).length > 0) { setErrors(errs); return; }
     setSubmitting(true);
     try {
-      await login(form.email, form.password);
-      navigate('/dashboard');
+      const u = await login(form.email, form.password);
+      navigate(u.role === 'admin' ? '/admin' : '/dashboard');
     } catch (err) {
       if (err instanceof ApiError) setServerError(err.message);
       else setServerError('Something went wrong');

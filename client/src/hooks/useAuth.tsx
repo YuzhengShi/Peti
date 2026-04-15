@@ -4,7 +4,7 @@ import { User, getMe, login as apiLogin, logout as apiLogout, register as apiReg
 interface AuthContextType {
   user: User | null;
   loading: boolean;
-  login: (email: string, password: string) => Promise<void>;
+  login: (email: string, password: string) => Promise<User>;
   register: (email: string, username: string, password: string) => Promise<void>;
   logout: () => Promise<void>;
 }
@@ -25,6 +25,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const login = async (email: string, password: string) => {
     const u = await apiLogin({ email, password });
     setUser(u);
+    return u;
   };
 
   const register = async (email: string, username: string, password: string) => {

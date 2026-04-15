@@ -3,6 +3,7 @@ import { domainSections } from '../questions';
 import type { DimensionType, DomainSection } from '../questions/types';
 import type { ScoredResult } from '../scoring/utils';
 import { submitProfile, getProfiles, ProfileResult } from '../api/profiles';
+import { useAuth } from './useAuth';
 
 // Domain scorers — mapped by DimensionType
 import { scoreDailyFunctioning } from '../scoring/dailyfunctioning';
@@ -12,7 +13,7 @@ import { scoreAttachment } from '../scoring/attachment';
 import { scoreFunctioning } from '../scoring/functioning';
 import { scoreBigFive } from '../scoring/scoring';
 
-const STORAGE_KEY = 'peti-test-progress';
+const STORAGE_KEY_PREFIX = 'peti-test-progress-';
 
 const SCORERS: Record<DimensionType, (answers: Record<string, number>, items: import('../questions/types').QuestionItem[]) => ScoredResult> = {
   dailyFunctioning: scoreDailyFunctioning,
@@ -56,6 +57,9 @@ interface UseTestProgressReturn {
  * Answers are stored per-domain and preserved across section jumps.
  */
 export function useTestProgress(): UseTestProgressReturn {
+  const { user } = useAuth();
+  const storageKey = user ? `${STORAGE_KEY_PREFIX}${user.id}` : null;
+
   const [completedDomains, setCompletedDomains] = useState<Set<DimensionType>>(new Set());
   const [currentDomainIndex, setCurrentDomainIndex] = useState(0);
   const [answersByDomain, setAnswersByDomain] = useState<Record<string, Record<string, number>>>({});
@@ -63,6 +67,7 @@ export function useTestProgress(): UseTestProgressReturn {
 
   // On mount: check which domains are already done (DB), and resume from localStorage
   useEffect(() => {
+    if (!storageKey) return;
     let cancelled = false;
     (async () => {
       try {
@@ -77,8 +82,8 @@ export function useTestProgress(): UseTestProgressReturn {
         const startIdx = firstIncomplete === -1 ? domainSections.length : firstIncomplete;
         setCurrentDomainIndex(startIdx);
 
-        // Restore all answers from localStorage
-        const stored = localStorage.getItem(STORAGE_KEY);
+        // Restore answers from user-scoped localStorage
+        const stored = localStorage.getItem(storageKey);
         if (stored) {
           try {
             const parsed = JSON.parse(stored);
@@ -100,7 +105,7 @@ export function useTestProgress(): UseTestProgressReturn {
       }
     })();
     return () => { cancelled = true; };
-  }, []);
+  }, [storageKey]);
 
   const currentSection = currentDomainIndex < domainSections.length
     ? domainSections[currentDomainIndex]
@@ -113,14 +118,14 @@ export function useTestProgress(): UseTestProgressReturn {
 
   // Save answer + persist all answers to localStorage
   const setAnswer = useCallback((itemId: string, value: number) => {
-    if (!currentSection) return;
+    if (!currentSection || !storageKey) return;
     setAnswersByDomain(prev => {
       const domainAnswers = { ...(prev[currentSection.id] || {}), [itemId]: value };
       const next = { ...prev, [currentSection.id]: domainAnswers };
-      localStorage.setItem(STORAGE_KEY, JSON.stringify(next));
+      localStorage.setItem(storageKey, JSON.stringify(next));
       return next;
     });
-  }, [currentSection]);
+  }, [currentSection, storageKey]);
 
   // Score current domain, POST result, return to first incomplete domain
   const submitDomain = useCallback(async () => {
@@ -145,8 +150,8 @@ export function useTestProgress(): UseTestProgressReturn {
 
   // Clean up localStorage after all 6 domains complete
   const triggerOnboarding = useCallback(async () => {
-    localStorage.removeItem(STORAGE_KEY);
-  }, []);
+    if (storageKey) localStorage.removeItem(storageKey);
+  }, [storageKey]);
 
   return {
     currentSection,

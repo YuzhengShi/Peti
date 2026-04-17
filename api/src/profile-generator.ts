@@ -6,34 +6,154 @@ import { config } from './config';
 
 const client = new BedrockRuntimeClient({ region: 'us-west-2' });
 
-const MODEL_ID = 'us.anthropic.claude-sonnet-4-6';
+const DOMAIN_FILES: Record<string, string> = {
+  bigFive: '09-big-five.md',
+  attachment: '07-attachment.md',
+  personalityFunctioning: '08-personality-functioning.md',
+  sleepRegulation: '05-sleep-regulation.md',
+  emotionRegulation: '06-emotion-regulation.md',
+  dailyFunctioning: '04-daily-functioning.md',
+};
 
-const FRAMEWORK_FILES = [
-  '00-orchestrator.md',
-  '01-three-layer-model.md',
-  '02-scoring-interpretation.md',
-  '03-feedback-language.md',
-  '04-daily-functioning.md',
-  '05-sleep-regulation.md',
-  '06-emotion-regulation.md',
-  '07-attachment.md',
-  '08-personality-functioning.md',
-  '09-big-five.md',
-  '10-profile-template.md',
+// Shared files loaded once for all domain interpreters
+const SHARED_FILES = ['02-scoring-interpretation.md', '03-feedback-language.md'];
+
+// Synthesizer-only files
+const SYNTH_FILES = ['00-orchestrator.md', '01-three-layer-model.md', '10-profile-template.md'];
+
+const DOMAIN_LABELS: Record<string, string> = {
+  bigFive: 'Big Five',
+  attachment: 'Attachment',
+  personalityFunctioning: 'Personality Functioning',
+  sleepRegulation: 'Sleep & Energy',
+  emotionRegulation: 'Emotion Regulation',
+  dailyFunctioning: 'Daily Functioning',
+};
+
+const SYNTH_ORDER = [
+  'bigFive', 'attachment', 'personalityFunctioning',
+  'sleepRegulation', 'emotionRegulation', 'dailyFunctioning',
 ];
 
-let frameworkCache: string | null = null;
+const fileCache = new Map<string, string>();
 
-function loadFramework(): string {
-  if (frameworkCache) return frameworkCache;
+function loadDomainFile(filename: string): string {
+  const cached = fileCache.get(filename);
+  if (cached) return cached;
+  const content = fs.readFileSync(path.join(path.resolve(config.frameworkDir), filename), 'utf-8');
+  fileCache.set(filename, content);
+  return content;
+}
 
-  const dir = path.resolve(config.frameworkDir);
-  frameworkCache = FRAMEWORK_FILES.map(f => {
-    const content = fs.readFileSync(path.join(dir, f), 'utf-8');
-    return `--- ${f} ---\n${content}`;
-  }).join('\n\n');
+function formatBands(scores: { aggregate: string; subscales: Record<string, string> }): string {
+  const subscaleLines = Object.entries(scores.subscales)
+    .map(([name, band]) => `  - ${name}: ${band}`)
+    .join('\n');
+  return `- Aggregate: ${scores.aggregate}\n- Subscales:\n${subscaleLines}`;
+}
 
-  return frameworkCache;
+async function interpretDomain(
+  dimensionType: string,
+  scores: { aggregate: string; subscales: Record<string, string> },
+): Promise<{ dimensionType: string; interpretation: string }> {
+  const domainFile = DOMAIN_FILES[dimensionType];
+  if (!domainFile) throw new Error(`Unknown domain: ${dimensionType}`);
+
+  const fileParts = [
+    `--- ${domainFile} ---\n${loadDomainFile(domainFile)}`,
+    ...SHARED_FILES.map(f => `--- ${f} ---\n${loadDomainFile(f)}`),
+  ];
+
+  const systemPrompt = `You are interpreting ONE domain of a personality assessment using the Beyond Personality Framework.
+
+${fileParts.join('\n\n')}`;
+
+  const userPrompt = `Interpret this user's ${dimensionType} results.
+
+## Band Results
+${formatBands(scores)}
+
+## Instructions
+1. Look up the EXACT band-specific interpretation text in the domain file for each subscale and the aggregate. Use that language as your starting point — do not write generic paraphrasing.
+2. Follow the 5-part feedback structure from 03-feedback-language.md: domain intro → pattern description → daily life meaning → context/variability → cross-domain notes.
+3. Write a "What this means for Peti" section with specific, actionable guidance for the companion agent.
+4. At the end, write a "## Cross-Domain Notes" section listing every other domain that plausibly interacts with these results and how (use the Cross-Domain Connections section in the domain file). Do not cap the count — include every connection that is genuinely supported by the band results.
+5. Use tentative language ("your responses suggest", "you tend to"). Lead with strengths. Normalize variation.
+
+Output ONLY the interpretation. No preamble, no markdown fence.`;
+
+  const command = new InvokeModelCommand({
+    modelId: 'us.anthropic.claude-sonnet-4-6',
+    contentType: 'application/json',
+    accept: 'application/json',
+    body: JSON.stringify({
+      anthropic_version: 'bedrock-2023-05-31',
+      max_tokens: 2048,
+      messages: [{ role: 'user', content: userPrompt }],
+      system: systemPrompt,
+    }),
+  });
+
+  const response = await client.send(command);
+  const result = JSON.parse(new TextDecoder().decode(response.body));
+  return { dimensionType, interpretation: result.content[0].text };
+}
+
+async function synthesizeProfile(
+  interpretations: { dimensionType: string; interpretation: string }[],
+  userInfo: { username: string; petName: string; petDate: string },
+  allBands: string,
+): Promise<string> {
+  const fileParts = SYNTH_FILES.map(f => `--- ${f} ---\n${loadDomainFile(f)}`);
+
+  const systemPrompt = `You are assembling a complete personality profile from pre-interpreted domain narratives.
+
+${fileParts.join('\n\n')}`;
+
+  const interpMap = new Map(interpretations.map(i => [i.dimensionType, i.interpretation]));
+  const orderedBlocks = SYNTH_ORDER
+    .filter(dt => interpMap.has(dt))
+    .map(dt => `### ${DOMAIN_LABELS[dt]}\n${interpMap.get(dt)}`)
+    .join('\n\n');
+
+  const userPrompt = `Assemble PROFILE.md from these domain interpretations.
+
+## User Info
+- Username: ${userInfo.username}
+- Pet name: ${userInfo.petName}
+- Together since: ${userInfo.petDate}
+
+## Original Band Results (for reference)
+${allBands}
+
+## Domain Interpretations
+
+${orderedBlocks}
+
+## Instructions
+1. Follow the template in 10-profile-template.md EXACTLY for the output structure.
+2. The domain interpretations above are ALREADY written by domain specialists. Slot them into the appropriate sections. Do NOT rewrite or paraphrase them — use them as-is for the domain sections.
+3. YOUR primary job is the cross-cutting sections that require synthesis:
+   a. **"Who They Are"** (4 sub-sections) — integrate across ALL 6 domain interpretations to paint a picture of a whole human. Do NOT mention domain names or band labels. Write as a friend describing someone.
+   b. **"Cross-Domain Connections"** — use the cross-domain notes from each interpreter to identify every cross-domain connection that is genuinely supported by the band results. Each connection should name the domains, explain the mechanism, and describe what it means for daily life. Do not force connections that aren't clearly present — fewer strong connections are better than many weak ones.
+4. Fill in "The Basics" from user info. Set "What Peti Knows About Them" and "Notes for Peti" to "[none yet — first meeting]" and "[none yet]".
+5. Output ONLY the PROFILE.md content. No preamble, no markdown fence.`;
+
+  const command = new InvokeModelCommand({
+    modelId: 'anthropic.claude-opus-4-6-v1',
+    contentType: 'application/json',
+    accept: 'application/json',
+    body: JSON.stringify({
+      anthropic_version: 'bedrock-2023-05-31',
+      max_tokens: 8192,
+      messages: [{ role: 'user', content: userPrompt }],
+      system: systemPrompt,
+    }),
+  });
+
+  const response = await client.send(command);
+  const result = JSON.parse(new TextDecoder().decode(response.body));
+  return result.content[0].text;
 }
 
 export async function generateProfile(userId: string): Promise<string> {
@@ -47,53 +167,27 @@ export async function generateProfile(userId: string): Promise<string> {
     throw new Error('Incomplete profile data — need all 6 domains');
   }
 
-  const scoresBlock = user.profileResults.map(r => {
+  // Phase 1: 6 parallel calls
+  const interpretations = await Promise.all(
+    user.profileResults.map(r =>
+      interpretDomain(r.dimensionType, r.scores as { aggregate: string; subscales: Record<string, string> })
+    )
+  );
+
+  const allBands = user.profileResults.map(r => {
     const scores = r.scores as { aggregate: string; subscales: Record<string, string> };
-    const subscaleLines = Object.entries(scores.subscales)
-      .map(([name, band]) => `  - ${name}: ${band}`)
-      .join('\n');
-    return `### ${r.dimensionType}\n- Aggregate: ${scores.aggregate}\n- Subscales:\n${subscaleLines}`;
+    return `### ${r.dimensionType}\n${formatBands(scores)}`;
   }).join('\n\n');
 
   const petName = user.pet?.name || 'unnamed';
   const petDate = user.pet?.createdAt?.toLocaleDateString('en-CA', { timeZone: 'America/Los_Angeles' }) || 'unknown';
 
-  const framework = loadFramework();
-
-  const systemPrompt = `You are a profile generation agent for Peti, a virtual companion app. Your task is to generate a rich, narrative personality profile based on the user's assessment results and the Beyond Personality Framework.
-
-Read and follow ALL of the framework documents below. They contain the rules, domain definitions, feedback language, and output template you must use.
-
-${framework}`;
-
-  const userPrompt = `Generate a complete PROFILE.md for this user.
-
-## User Info
-- Username: ${user.username}
-- Pet name: ${petName}
-- Together since: ${petDate}
-
-## Assessment Results
-
-${scoresBlock}
-
-Follow the template in 10-profile-template.md exactly. Every [Generate] section must have substantive narrative interpretation. The user spent ~10 minutes answering 106 questions across 6 domains — honor that investment with rich, specific, cross-domain narrative.`;
-
-  const command = new InvokeModelCommand({
-    modelId: MODEL_ID,
-    contentType: 'application/json',
-    accept: 'application/json',
-    body: JSON.stringify({
-      anthropic_version: 'bedrock-2023-05-31',
-      max_tokens: 8192,
-      messages: [{ role: 'user', content: userPrompt }],
-      system: systemPrompt,
-    }),
-  });
-
-  const response = await client.send(command);
-  const result = JSON.parse(new TextDecoder().decode(response.body));
-  const content = result.content[0].text;
+  // Phase 2: 1 synthesizer call
+  const content = await synthesizeProfile(
+    interpretations,
+    { username: user.username, petName, petDate },
+    allBands,
+  );
 
   // Generate concise user-facing summary from the full profile
   const summary = await generateSummary(content);
@@ -109,7 +203,7 @@ Follow the template in 10-profile-template.md exactly. Every [Generate] section 
 
 async function generateSummary(fullProfile: string): Promise<string> {
   const command = new InvokeModelCommand({
-    modelId: MODEL_ID,
+    modelId: 'us.anthropic.claude-sonnet-4-6',
     contentType: 'application/json',
     accept: 'application/json',
     body: JSON.stringify({

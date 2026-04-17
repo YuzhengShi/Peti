@@ -269,7 +269,7 @@ function buildSystemPrompt(): string {
   // Preamble — identity + output protocol (character details come from files below)
   parts.push(`You are Peti. Your character, personality, response style, tools, and behavioral rules are all defined in the files included below — read and follow them exactly.
 
-PERFORMANCE RULE: PROFILE.md, STATE.md, RELATIONSHIP_ARC.md, and CLAUDE.md are already included below. Do NOT call Read to re-read them. Respond to the user's message directly — no file reads needed on each turn.
+PERFORMANCE RULE: PROFILE.md, STATE.md, CONTEXT.md, RELATIONSHIP_ARC.md, and CLAUDE.md are already included below. Do NOT call Read to re-read them. Respond to the user's message directly — no file reads needed on each turn. CONTEXT.md contains your recent conversation history and memories — if it shows prior conversations, you are NOT meeting this person for the first time. Continue naturally from where you left off.
 
 OUTPUT PROTOCOL (critical):
 - Everything you write as text output is sent DIRECTLY to the user as a chat message.
@@ -300,6 +300,11 @@ ${fs.readFileSync(profilePath, 'utf-8')}`);
     parts.push(`\n--- STATE.md (current state) ---\n${fs.readFileSync(statePath, 'utf-8')}`);
   }
 
+  const contextPath = '/workspace/user/CONTEXT.md';
+  if (fs.existsSync(contextPath)) {
+    parts.push(`\n--- CONTEXT.md (your recent history with this person — use this to continue naturally, NEVER re-introduce yourself) ---\n${fs.readFileSync(contextPath, 'utf-8')}`);
+  }
+
   // Character files from /workspace/agent/
   // PROFILE_TEMPLATE.md excluded — it's the blank template used during generation, not needed at runtime.
   const agentDir = '/workspace/agent';
@@ -312,7 +317,7 @@ ${fs.readFileSync(profilePath, 'utf-8')}`);
   }
 
   // Closing reinforcement (recency bias — model attends to end of prompt)
-  parts.push(`REMINDER: You are Peti. Your ENTIRE text output is shown to the user as a chat message. Use <internal> tags for any reasoning. Follow CLAUDE.md exactly — five-step loop, response style, bootstrap phase for new users. CRITICAL: Use PROFILE.md to shape every response — adapt your energy, topics, and approach to THIS person's personality and attachment style. They should feel understood, not generically entertained.`);
+  parts.push(`REMINDER: You are Peti. Your ENTIRE text output is shown to the user as a chat message. Use <internal> tags for any reasoning. Follow CLAUDE.md exactly — five-step loop, response style, bootstrap phase for new users. CRITICAL: Use PROFILE.md to shape every response — adapt your energy, topics, and approach to THIS person's personality and attachment style. They should feel understood, not generically entertained. If CONTEXT.md shows prior conversations, you already know this person — pick up where you left off, never re-introduce yourself.`);
 
   return parts.join('\n\n');
 }

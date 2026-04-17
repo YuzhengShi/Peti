@@ -91,6 +91,74 @@ class ProfileManager {
       fs.writeFileSync(statePath, blankState);
     }
     fs.chownSync(statePath, CONTAINER_UID, CONTAINER_GID);
+
+    // Write CONTEXT.md — recent conversations + curated memories for session recovery
+    const context = await this.buildRecoveryContext(userId);
+    const contextPath = path.join(userDir, 'CONTEXT.md');
+    if (context) {
+      fs.writeFileSync(contextPath, context);
+      fs.chownSync(contextPath, CONTAINER_UID, CONTAINER_GID);
+    } else if (fs.existsSync(contextPath)) {
+      fs.unlinkSync(contextPath);
+    }
+  }
+
+  /**
+   * Build recovery context from recent messages + curated memories.
+   * Written to CONTEXT.md so the agent can continue naturally after restarts.
+   */
+  async buildRecoveryContext(userId: string): Promise<string> {
+    const parts: string[] = [];
+
+    const user = await prisma.user.findUnique({
+      where: { id: userId },
+      include: { pet: true },
+    });
+
+    // Recent conversations (last 30 messages, chronological)
+    const messages = await prisma.message.findMany({
+      where: { userId },
+      orderBy: { createdAt: 'desc' },
+      take: 30,
+    });
+    messages.reverse();
+
+    if (messages.length > 0) {
+      parts.push('## Recent Conversations\n');
+      const petName = user?.pet?.name || 'Peti';
+      const userName = user?.username || 'User';
+      for (const msg of messages) {
+        const ts = msg.createdAt.toLocaleString('en-US', {
+          timeZone: 'America/Los_Angeles',
+          month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit', hour12: true,
+        });
+        const sender = msg.role === 'user' ? userName : petName;
+        const content = msg.content.length > 300
+          ? msg.content.slice(0, 300) + '...'
+          : msg.content;
+        parts.push(`[${ts}] ${sender}: ${content}`);
+      }
+    }
+
+    // Curated memories (top 10 by importance, then recency)
+    const memories = await prisma.memory.findMany({
+      where: { userId, isActive: true },
+      orderBy: [{ importance: 'desc' }, { createdAt: 'desc' }],
+      take: 10,
+    });
+
+    if (memories.length > 0) {
+      parts.push('\n## Memories About This Person\n');
+      for (const mem of memories) {
+        const date = mem.createdAt.toLocaleDateString('en-CA', {
+          timeZone: 'America/Los_Angeles',
+        });
+        parts.push(`- [${mem.category}, importance ${mem.importance}] ${mem.content} (${date})`);
+      }
+    }
+
+    if (parts.length === 0) return '';
+    return parts.join('\n') + '\n';
   }
 
   /**

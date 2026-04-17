@@ -140,7 +140,7 @@ ${orderedBlocks}
 5. Output ONLY the PROFILE.md content. No preamble, no markdown fence.`;
 
   const command = new InvokeModelCommand({
-    modelId: 'anthropic.claude-opus-4-6-v1',
+    modelId: 'us.anthropic.claude-opus-4-6-v1',
     contentType: 'application/json',
     accept: 'application/json',
     body: JSON.stringify({
